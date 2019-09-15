@@ -48,7 +48,7 @@ main {
                 <cell
                     ref="cells"
                     :status="status"
-                    :arounds="gatherAroundCells(this)"
+                    :arounds="gatherAroundCells(x, y)"
                     :x="x"
                     :y="y"
                     @update="recount()">
@@ -85,20 +85,20 @@ export default class Game extends Vue{
         return "Title";
     }
 
-    get cells(): Cell[]{
+    private getCells(): Cell[]{
         const cells = this.$refs.cells;
         if(cells instanceof Array) return cells as Cell[];
         if(cells instanceof Cell) return [cells];
         return [];
     }
 
-    gatherAroundCells(center: Cell){
-        return this.cells.filter(cell=>{
-            if(cell === center) return false;
-            if(cell.x < center.x - 1) return false;
-            if(cell.x > center.x + 1) return false;
-            if(cell.y < center.y - 1) return false;
-            if(cell.y > center.y + 1) return false;
+    gatherAroundCells(x: number, y: number){
+        return this.getCells().filter(cell=>{
+            if(cell.x == x && cell.y == y) return false;
+            if(cell.x < x - 1) return false;
+            if(cell.x > x + 1) return false;
+            if(cell.y < y - 1) return false;
+            if(cell.y > y + 1) return false;
             return true;
         });
     }

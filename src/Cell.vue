@@ -25,10 +25,10 @@ import {Status} from './Game.vue';
 
 @Component({props: ['status', 'arounds', 'x', 'y']})
 export default class Cell extends Vue{
-    status!:Status;
-    arounds!: Cell[];
-    x!: number;
-    y!: number;
+    readonly status!:Status;
+    readonly arounds!: Cell[];
+    readonly x!: number;
+    readonly y!: number;
 
     bomb: boolean = false;
     digged: boolean = false;
