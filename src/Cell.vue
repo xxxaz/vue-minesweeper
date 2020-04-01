@@ -1,19 +1,21 @@
 <style scoped lang="scss">
     div {
-        cursor: pointer;
-
         width: 1.5em;
         height: 1.5em;
+        text-align: center;
 
         background-color: #ccc;
         &.digged {
             background-color: #666;
         }
+        &.mutable {
+            cursor: pointer;
+        }
     }
 </style>
 
 <template>
-    <div :class="{digged}" @click="dig()" @contextmenu.prevent="mark()">
+    <div :class="{digged, mutable}" @click="dig()" @contextmenu.prevent="mark()">
         {{display()}}
     </div>
 </template>
@@ -23,45 +25,46 @@ import Vue from "vue";
 import Component from "vue-class-component";
 import {Status} from './Game.vue';
 
-@Component({props: ['status', 'arounds', 'x', 'y']})
+@Component({props: ['status', 'x', 'y']})
 export default class Cell extends Vue{
-    readonly status!:Status;
-    readonly arounds!: Cell[];
+    readonly status!: Status;
     readonly x!: number;
     readonly y!: number;
 
+    arounds: Cell[] = [];
     bomb: boolean = false;
     digged: boolean = false;
     marked: boolean = false;
 
     get mutable(){
-        if(this.status != 'playing') return false;
         if(this.digged) return false;
+        if(!['ready', 'playing'].includes(this.status)) return false;
         return true;
     }
 
     get aroundBombsNumber(){
-
-        return 0;
+        return this.arounds.filter(c=>c.bomb).length;
     }
 
     display(){
-        if(this.marked) return '🚩';
-        if(!this.digged){
-            if(this.bomb) return '💥';
-            return this.aroundBombsNumber || '';
+        if(this.bomb){
+            if(this.digged) return '💥';
+            if(this.status == 'failured') return '💣';
+            if(this.status == 'successed') return '💣';
         }
-
-        return '';
+        if(this.digged) return this.aroundBombsNumber || '';
+        return this.marked ? '🚩' : '';
     }
 
-
     dig(){
-        if(!this.mutable) return;
         if(this.marked) return;
-        
+        if(!this.mutable) return;
         this.digged = true;
         this.$emit('update');
+        
+        if(!this.bomb && !this.aroundBombsNumber){
+            for(let cell of this.arounds) cell.dig();
+        }
     }
 
     mark(){

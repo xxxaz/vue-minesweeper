@@ -14,8 +14,12 @@ main {
     h1 {
         padding: 0.2em 0.5em;
     }
-    input[type="number"]:not(:disabled){
-        border: solid 1px black;
+    input[type="number"]{
+        width: 3em;
+        text-align: right;
+        &:not(:disabled){
+            border: solid 1px black;
+        }
     }
     button{
         background-color: #aaa;
@@ -36,10 +40,10 @@ main {
             <input type="number" v-model.number="height" :min="3" :max="30" :disabled="status != 'preparing'" />
         </p>
         <p>
-            💣：<input type="number" v-model.number="bomb" :min="1" :max="width * height" :disabled="status != 'preparing'" />
+            💣：<input type="number" v-model.number="bomb" :min="1" :max="(width * height) / 2" :disabled="status != 'preparing'" />
         </p>
         <button v-if="status == 'preparing'" @click="start">Start</button>
-        <button v-else-if="status == 'playing'" @click="giveup">Giveup</button>
+        <button v-else-if="status == 'playing'" @click="finish(false)">Giveup</button>
         <button v-else @click="reset">Reset</button>
     </div>
     <table>
@@ -48,7 +52,6 @@ main {
                 <cell
                     ref="cells"
                     :status="status"
-                    :arounds="gatherAroundCells(x, y)"
                     :x="x"
                     :y="y"
                     @update="recount()">
@@ -64,7 +67,7 @@ import Vue from "vue";
 import Component from "vue-class-component";
 import Cell from "./Cell.vue";
 
-export type Status = 'preparing'|'playing'|'successed'|'failured';
+export type Status = 'preparing'|'ready'|'playing'|'successed'|'failured';
 
 const components = {
     'cell': Cell
@@ -73,27 +76,49 @@ const components = {
 @Component({components})
 export default class Game extends Vue{
     status: Status = 'preparing';
-    width: number = 5;
-    height: number = 5;
-    bomb: number = 5;
+    width: number = 10;
+    height: number = 10;
+    bomb: number = 10;
+    currentTime: number = 0;
+
+    private async countUp(){
+        const startTime = Date.now();
+        while(this.status == 'playing'){
+            this.currentTime = Date.now() - startTime;
+            await new Promise(r=>requestAnimationFrame(r));
+        }
+    }
 
     created(){
         document.title = 'Game';
     }
 
     get title(): string{
-        return "Title";
+        if(this.status == 'preparing') return "Settings";
+        const n = Math.floor(this.currentTime / 1000);
+        const d = ('00'+ this.currentTime % 1000).substr(-3);
+        return  `${n}.${d} Sec`;
     }
 
-    private getCells(): Cell[]{
-        const cells = this.$refs.cells;
-        if(cells instanceof Array) return cells as Cell[];
-        if(cells instanceof Cell) return [cells];
-        return [];
+    private cells: Cell[] = [];
+    start(){
+        if(!this.width) return;
+        if(!this.height) return;
+        if(!this.bomb) return;
+
+        const refCells = this.$refs.cells;
+        if(refCells instanceof Array) this.cells = refCells as Cell[];
+        else if(refCells instanceof Cell) this.cells = [refCells];
+        else this.cells = [];
+        for(let cell of this.cells){
+            cell.arounds = this.gatherAroundCells(cell.x, cell.y);
+        }
+        
+        this.status = 'ready';
     }
 
-    gatherAroundCells(x: number, y: number){
-        return this.getCells().filter(cell=>{
+    private gatherAroundCells(x: number, y: number){
+        return this.cells.filter(cell=>{
             if(cell.x == x && cell.y == y) return false;
             if(cell.x < x - 1) return false;
             if(cell.x > x + 1) return false;
@@ -103,20 +128,46 @@ export default class Game extends Vue{
         });
     }
 
+    private setBombs(){
+        while(this.cells.filter(c=>c.bomb).length < this.bomb){
+            const i = Math.floor(Math.random() * this.cells.length);
+            if(this.cells[i].digged) continue;
+            this.cells[i].bomb = true;
+        }
+    }
+
     recount(){
-        
+        if(this.status == 'ready'){
+            this.setBombs();
+            this.status = 'playing';
+            this.countUp();
+            this.$forceUpdate();
+        }
+
+        if(this.cells.find(c=>c.digged && c.bomb)){
+            this.finish(false);
+            return;
+        }
+
+        if(this.cells.every(c=>c.digged || c.bomb)){
+            this.finish(true);
+            return;
+        }
     }
 
-    start(){
-        this.status = 'playing';
-    }
-
-    giveup(){
-        
+    finish(success: boolean){
+        this.status = success ? 'successed' : 'failured';
+        alert(this.status);
     }
 
     reset(){
-        
+        for(let cell of this.cells){
+            cell.bomb = false;
+            cell.digged = false;
+            cell.marked = false;
+            cell.arounds = [];
+        }
+        this.status = 'preparing';
     }
 
 }
